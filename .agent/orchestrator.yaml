@@ -1,0 +1,36 @@
+version: 1
+
+repo:
+  master_branch: master
+
+worktree:
+  base_dir: .worktrees
+  branch_prefix: task
+  integration_dir: .worktrees/_integration
+  integration_branch: integration/master
+
+agents:
+  implementation:
+    config: .agent/agent.md
+    timeout_minutes: 60
+  review:
+    config: .agent/review.md
+    timeout_minutes: 20
+  fix:
+    config: .agent/agent.md
+    timeout_minutes: 30
+
+review:
+  max_attempts: 5
+
+validation:
+  pre_merge:
+    - gofmt -l .
+    - go test ./...
+  post_merge:
+    - gofmt -l .
+    - go test ./...
+
+merge:
+  strategy: squash
+  delete_branch_after_merge: true

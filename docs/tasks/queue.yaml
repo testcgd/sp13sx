@@ -1,0 +1,11 @@
+version: 1
+
+current:
+  id: ""
+  started_at: ""
+  worktree: ""
+
+pending:
+  - "001-bootstrap-autonomous-workflow"
+
+history:
