@@ -1,0 +1,26 @@
+package tools
+
+type Registry struct {
+	tools map[string]Tool
+}
+
+func NewRegistry() *Registry {
+	return &Registry{tools: map[string]Tool{}}
+}
+
+func (r *Registry) Register(tool Tool) {
+	r.tools[tool.Name()] = tool
+}
+
+func (r *Registry) Get(name string) (Tool, bool) {
+	tool, ok := r.tools[name]
+	return tool, ok
+}
+
+func (r *Registry) Definitions() []Tool {
+	out := make([]Tool, 0, len(r.tools))
+	for _, tool := range r.tools {
+		out = append(out, tool)
+	}
+	return out
+}

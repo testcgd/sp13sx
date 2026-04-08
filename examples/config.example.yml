@@ -1,0 +1,72 @@
+app:
+  name: sp13sx
+  data_dir: ~/.sp13sx
+  log_level: info
+
+ui:
+  theme: default
+  layout: dual-pane
+  show_tool_calls: true
+  show_timestamps: true
+  right_pane_width: 40
+
+defaults:
+  backend: openai
+  model: gpt-5
+  skill_dirs:
+    - ~/.codex/skills
+    - ./examples/skills
+  enabled_skills: []
+  session_title_mode: auto
+
+backends:
+  openai:
+    type: openai-responses
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+    organization_env: OPENAI_ORG_ID
+    project_env: OPENAI_PROJECT_ID
+    request:
+      temperature: 1
+      max_output_tokens: 4096
+      timeout_seconds: 120
+      reasoning_effort: medium
+
+tools:
+  builtin:
+    read_file:
+      enabled: true
+    list_files:
+      enabled: true
+    run_command:
+      enabled: true
+      allowlist:
+        - git status
+        - git diff
+      timeout_seconds: 30
+      max_output_bytes: 65536
+
+mcp:
+  servers:
+    - name: filesystem
+      enabled: false
+      transport: stdio
+      command: npx
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+      env: {}
+      cwd: .
+      startup_timeout_seconds: 15
+
+skills:
+  auto_discover: true
+  prefer_frontmatter_name: true
+  allow_project_skills: true
+
+sessions:
+  auto_resume_last: true
+  max_history_messages: 200
+  summarize_threshold: 120
+
+storage:
+  conversations_dir: ~/.sp13sx/conversations
+  state_dir: ~/.sp13sx/state

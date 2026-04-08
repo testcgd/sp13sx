@@ -1,0 +1,7 @@
+.sp13sx/
+dist/
+bin/
+*.log
+*.test
+coverage.out
+vendor/
