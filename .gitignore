@@ -1,4 +1,5 @@
 .sp13sx/
+config.local.yml
 dist/
 bin/
 *.log
