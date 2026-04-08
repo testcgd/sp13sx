@@ -3,12 +3,13 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 
 	"sp13sx/internal/config"
 	"sp13sx/internal/domain"
 	"sp13sx/internal/llm"
-	openaiBackend "sp13sx/internal/llm/openai"
 	"sp13sx/internal/mcp"
 	"sp13sx/internal/skills"
 	"sp13sx/internal/store"
@@ -38,8 +39,9 @@ func NewRuntime(cfg config.Config) (*Runtime, error) {
 		return nil, err
 	}
 
-	backendCfg := cfg.Backends[cfg.Defaults.Backend]
-	backend, err := openaiBackend.NewBackend(backendCfg)
+	// 使用 BackendFactory 根据测试模式创建 Backend
+	factory := NewBackendFactory(cfg)
+	backend, err := factory.Create()
 	if err != nil {
 		return nil, err
 	}
@@ -128,6 +130,24 @@ func (r *Runtime) EffectiveInstructions() string {
 	return skills.Compose(r.BaseInstructions(), r.Config.Defaults.EnabledSkills, r.Skills)
 }
 
+func (r *Runtime) Close() error {
+	var errs []error
+	if closer, ok := r.Backend.(io.Closer); ok {
+		if err := closer.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if r.MCP != nil {
+		if err := r.MCP.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return errors.Join(errs...)
+}
+
 func (r *Runtime) Send(ctx context.Context, text string) (<-chan llm.StreamEvent, error) {
 	now := util.NowUTC()
 	userMsg := domain.Message{
@@ -184,12 +204,8 @@ func (r *Runtime) runTurnLoop(ctx context.Context, req llm.GenerateRequest, out 
 			return
 		}
 
-		var responseID string
 		var toolCalls []*llm.ToolCall
 		for event := range stream {
-			if event.Type == "response_id" && event.ResponseID != "" {
-				responseID = event.ResponseID
-			}
 			if event.Type == "tool_call" && event.ToolCall != nil {
 				toolCalls = append(toolCalls, event.ToolCall)
 			}
@@ -197,10 +213,6 @@ func (r *Runtime) runTurnLoop(ctx context.Context, req llm.GenerateRequest, out 
 		}
 
 		if len(toolCalls) == 0 {
-			return
-		}
-		if responseID == "" {
-			out <- llm.StreamEvent{Type: "error", Error: fmt.Errorf("missing response id for tool continuation")}
 			return
 		}
 
@@ -256,15 +268,14 @@ func (r *Runtime) runTurnLoop(ctx context.Context, req llm.GenerateRequest, out 
 				},
 			})
 
-			nextInput = append(nextInput, llm.FunctionOutputInput(call.CallID, outputText))
+			nextInput = append(nextInput, llm.ToolResultInput(call.CallID, call.Name, outputText))
 		}
 
 		current = llm.GenerateRequest{
-			Model:              r.Session.Model,
-			Instructions:       r.EffectiveInstructions(),
-			Input:              nextInput,
-			Tools:              buildToolDefinitions(r.Tools),
-			PreviousResponseID: responseID,
+			Model:        r.Session.Model,
+			Instructions: r.EffectiveInstructions(),
+			Input:        nextInput,
+			Tools:        buildToolDefinitions(r.Tools),
 		}
 	}
 }

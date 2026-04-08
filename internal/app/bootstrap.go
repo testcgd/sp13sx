@@ -22,6 +22,7 @@ func Run() error {
 	if err != nil {
 		return err
 	}
+	defer runtime.Close()
 
 	model := tui.NewModel(runtime)
 	program := tea.NewProgram(model, tea.WithAltScreen())

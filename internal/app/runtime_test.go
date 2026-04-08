@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -83,14 +84,16 @@ func TestRunTurnLoopToolRoundTrip(t *testing.T) {
 	if len(requests) != 2 {
 		t.Fatalf("expected 2 backend requests, got %d", len(requests))
 	}
-	if requests[1].PreviousResponseID != "resp_1" {
-		t.Fatalf("expected previous_response_id resp_1, got %q", requests[1].PreviousResponseID)
+
+	if len(requests[1].Input) != 1 || requests[1].Input[0].Type != "tool_result" {
+		t.Fatalf("expected tool_result input, got %#v", requests[1].Input)
 	}
-	if len(requests[1].Input) != 1 || requests[1].Input[0].Type != "function_call_output" {
-		t.Fatalf("expected function_call_output input, got %#v", requests[1].Input)
+	if requests[1].Input[0].ToolName != "echo_tool" {
+		t.Fatalf("expected tool name echo_tool, got %q", requests[1].Input[0].ToolName)
 	}
-	if !strings.Contains(requests[1].Input[0].Output, "\"echo\":\"hello\"") {
-		t.Fatalf("expected tool output to be passed back, got %q", requests[1].Input[0].Output)
+
+	if !strings.Contains(requests[1].Input[0].Content, "\"echo\":\"hello\"") {
+		t.Fatalf("expected tool output to be passed back, got %q", requests[1].Input[0].Content)
 	}
 
 	foundToolCall := false
@@ -149,9 +152,49 @@ func TestPersistAssistantStreamWritesFinalMessage(t *testing.T) {
 	}
 }
 
+func TestRuntimeCloseClosesBackend(t *testing.T) {
+	backend := &closerBackend{}
+	runtime := &Runtime{Backend: backend}
+
+	if err := runtime.Close(); err != nil {
+		t.Fatalf("close runtime: %v", err)
+	}
+	if !backend.closed {
+		t.Fatal("expected runtime close to close backend")
+	}
+}
+
+func TestRuntimeCloseReturnsBackendError(t *testing.T) {
+	backend := &closerBackend{err: errors.New("close failed")}
+	runtime := &Runtime{Backend: backend}
+
+	err := runtime.Close()
+	if err == nil || !strings.Contains(err.Error(), "close failed") {
+		t.Fatalf("expected close error, got %v", err)
+	}
+}
+
 type fakeTool struct {
 	name string
 	run  func(context.Context, map[string]any) (map[string]any, error)
+}
+
+type closerBackend struct {
+	closed bool
+	err    error
+}
+
+func (b *closerBackend) Name() string { return "closer" }
+
+func (b *closerBackend) Generate(context.Context, llm.GenerateRequest) (<-chan llm.StreamEvent, error) {
+	ch := make(chan llm.StreamEvent)
+	close(ch)
+	return ch, nil
+}
+
+func (b *closerBackend) Close() error {
+	b.closed = true
+	return b.err
 }
 
 func (f fakeTool) Name() string           { return f.name }

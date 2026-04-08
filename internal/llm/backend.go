@@ -3,11 +3,10 @@ package llm
 import "context"
 
 type InputItem struct {
-	Type    string
-	Role    string
-	Content string
-	CallID  string
-	Output  string
+	Type     string
+	Content  string
+	CallID   string
+	ToolName string
 }
 
 type ToolDefinition struct {
@@ -25,11 +24,10 @@ type StreamEvent struct {
 }
 
 type GenerateRequest struct {
-	Model              string
-	Instructions       string
-	Input              []InputItem
-	Tools              []ToolDefinition
-	PreviousResponseID string
+	Model        string
+	Instructions string
+	Input        []InputItem
+	Tools        []ToolDefinition
 }
 
 type Backend interface {

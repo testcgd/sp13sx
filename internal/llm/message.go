@@ -2,16 +2,16 @@ package llm
 
 func UserTextInput(content string) InputItem {
 	return InputItem{
-		Type:    "message",
-		Role:    "user",
+		Type:    "user_message",
 		Content: content,
 	}
 }
 
-func FunctionOutputInput(callID string, output string) InputItem {
+func ToolResultInput(callID string, toolName string, content string) InputItem {
 	return InputItem{
-		Type:   "function_call_output",
-		CallID: callID,
-		Output: output,
+		Type:     "tool_result",
+		CallID:   callID,
+		ToolName: toolName,
+		Content:  content,
 	}
 }

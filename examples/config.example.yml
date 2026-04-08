@@ -70,3 +70,34 @@ sessions:
 storage:
   conversations_dir: ~/.sp13sx/conversations
   state_dir: ~/.sp13sx/state
+
+# 测试模式配置
+test:
+  # 测试模式: live | mock | playback | record
+  # 可通过环境变量 SP13SX_TEST_MODE 覆盖
+  mode: live
+  
+  # 场景脚本目录
+  scenario_dir: ./test/scenarios
+  
+  # 录制文件目录
+  recording_dir: ./test/recordings
+  
+  # 默认场景名称
+  default_scenario: ""
+  
+  # Mock 模式配置
+  mock:
+    scenario: basic_chat
+    random_delay: true
+  
+  # Playback 模式配置
+  playback:
+    recording: ""
+    strict_match: false
+  
+  # Record 模式配置
+  record:
+    backend: openai
+    auto_save: true
+    output: ""
