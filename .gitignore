@@ -8,4 +8,5 @@ coverage.out
 vendor/
 .worktrees/
 main
+sp13sx
 .opencode/package-lock.json
