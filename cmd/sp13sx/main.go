@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"sp13sx/internal/app"
 	"sp13sx/internal/config"
@@ -11,18 +12,27 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
+	args, configPath, err := extractGlobalConfigArg(os.Args[1:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sp13sx: %v\n", err)
+		os.Exit(1)
+	}
+	if configPath != "" {
+		os.Setenv("SP13SX_CONFIG", configPath)
+	}
+
+	if len(args) < 1 {
 		runMain()
 		return
 	}
 
-	switch os.Args[1] {
+	switch args[0] {
 	case "test":
-		runTest(os.Args[2:])
+		runTest(args[1:])
 	case "record":
-		runRecord(os.Args[2:])
+		runRecord(args[1:])
 	case "validate":
-		runValidate(os.Args[2:])
+		runValidate(args[1:])
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -34,13 +44,16 @@ func printUsage() {
 	fmt.Print(`sp13sx - 终端编程助手
 
 用法:
-  sp13sx              启动交互式 TUI
-  sp13sx test         使用 Mock 模式测试 TUI
-  sp13sx record       录制真实 LLM 交互
-  sp13sx validate     验证场景脚本文件
+	sp13sx [-f 配置文件]              启动交互式 TUI
+	sp13sx [-f 配置文件] test         使用 Mock 模式测试 TUI
+	sp13sx [-f 配置文件] record       录制真实 LLM 交互
+	sp13sx [-f 配置文件] validate     验证场景脚本文件
+
+全局选项:
+	-f, --config        指定配置文件路径
 
 环境变量:
-  SP13SX_CONFIG       配置文件路径
+	SP13SX_CONFIG       配置文件路径
   SP13SX_TEST_MODE    测试模式 (live|mock|playback|record)
   SP13SX_SCENARIO     场景脚本名称
   SP13SX_RECORDING    录制文件路径 (playback 模式)
@@ -48,20 +61,48 @@ func printUsage() {
   SP13SX_SMOKE_TEST   设置为 1 运行真实环境冒烟测试
 
 示例:
-  # 正常模式
-  ./scripts/dev.sh
+	# 正常模式
+	sp13sx -f ./config.local.yml
 
-  # Mock 模式测试
-  SP13SX_TEST_MODE=mock SP13SX_SCENARIO=basic_chat ./scripts/dev.sh
-  ./scripts/test-mock.sh basic_chat
+	# Mock 模式测试
+	sp13sx -f ./config.local.yml test -scenario basic_chat
+	./scripts/test-mock.sh basic_chat
 
   # 录制真实交互
   SP13SX_TEST_MODE=record ./scripts/dev.sh
   ./scripts/test-record.sh
 
-  # 回放录制
-  SP13SX_TEST_MODE=playback SP13SX_RECORDING=./test/recordings/demo.jsonl ./scripts/dev.sh
+	# 回放录制
+	SP13SX_TEST_MODE=playback SP13SX_RECORDING=./test/recordings/demo.jsonl ./scripts/dev.sh
 `)
+}
+
+func extractGlobalConfigArg(args []string) ([]string, string, error) {
+	filtered := make([]string, 0, len(args))
+	var configPath string
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "-f" || arg == "--config":
+			if i+1 >= len(args) {
+				return nil, "", fmt.Errorf("flag needs an argument: %s", arg)
+			}
+			configPath = args[i+1]
+			i++
+		case strings.HasPrefix(arg, "-f="):
+			configPath = strings.TrimPrefix(arg, "-f=")
+		case strings.HasPrefix(arg, "--config="):
+			configPath = strings.TrimPrefix(arg, "--config=")
+		default:
+			filtered = append(filtered, arg)
+		}
+	}
+
+	if configPath == "" {
+		return filtered, "", nil
+	}
+	return filtered, configPath, nil
 }
 
 func runMain() {
