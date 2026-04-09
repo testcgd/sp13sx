@@ -1,11 +1,10 @@
 version: 1
 
 current:
-  id: ""
-  started_at: ""
-  worktree: ""
+  id: "002-upgrade-tui-interaction"
+  started_at: "2026-04-09T22:15:03+08:00"
+  worktree: "/home/cgd/workspace/sp13sx/.worktrees/002-upgrade-tui-interaction"
 
 pending:
-  - "002-upgrade-tui-interaction"
 
 history:

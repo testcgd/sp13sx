@@ -159,11 +159,11 @@ increment_task_review_attempts() {
   local task_file="$1"
   local current
   current=$(task_review_attempts "$task_file")
-  local next=$((current + 1))
+  local next_attempt=$((current + 1))
   local tmp
   tmp=$(mktemp)
-  awk -F': ' -v next="$next" '
-    /^review_attempts:/ {$0 = "review_attempts: " next}
+  awk -F': ' -v next_attempt="$next_attempt" '
+    /^review_attempts:/ {$0 = "review_attempts: " next_attempt}
     {print}
   ' "$task_file" > "$tmp"
   mv "$tmp" "$task_file"

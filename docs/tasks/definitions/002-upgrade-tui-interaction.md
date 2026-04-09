@@ -1,8 +1,8 @@
 ---
 id: "002-upgrade-tui-interaction"
 title: "Upgrade TUI interaction to a complete usable flow"
-status: "pending"
-review_attempts: 0
+status: "review"
+review_attempts: 2
 max_review_attempts: 5
 labels: ["tui", "ux", "agent"]
 dependencies: []
@@ -86,3 +86,16 @@ dependencies: []
 ## Review Feedback
 
 验收失败时，编排器会在这里追加反馈。
+
+### Review Attempt 1
+
+## Findings
+
+1. `internal/tui/update.go:122-125` 在收到 `tool error:` 状态时，除了把事件写入事件区，还会额外 `appendMessage("error", statusLine)` 把工具失败重新插入主对话区。任务要求明确包含“工具请求、排队、完成、失败”等运行事件都应被收纳到独立区域或弱化呈现；当前实现下，失败类工具事件仍会打断主对话阅读流，未完成该验收项。
+2. `internal/tui/model_test.go` 目前覆盖了输入、多行、状态流转和事件记录，但没有断言 `Model.View()` 的实际渲染结果，因此新的“展示”行为仍缺少直接测试：例如独立 Events 区、右栏最近工具事件摘要、MCP/error 摘要、错误后的继续操作提示都没有被验证。这与 task 对“工具事件展示、错误展示”重点覆盖的要求仍有差距。
+
+### Review Attempt 1
+
+
+1. `internal/tui/update.go:122-125` 在收到 `tool error:` 状态时，除了把事件写入事件区，还会额外 `appendMessage("error", statusLine)` 把工具失败重新插入主对话区。任务要求明确包含“工具请求、排队、完成、失败”等运行事件都应被收纳到独立区域或弱化呈现；当前实现下，失败类工具事件仍会打断主对话阅读流，未完成该验收项。
+2. `internal/tui/model_test.go` 目前覆盖了输入、多行、状态流转和事件记录，但没有断言 `Model.View()` 的实际渲染结果，因此新的“展示”行为仍缺少直接测试：例如独立 Events 区、右栏最近工具事件摘要、MCP/error 摘要、错误后的继续操作提示都没有被验证。这与 task 对“工具事件展示、错误展示”重点覆盖的要求仍有差距。
