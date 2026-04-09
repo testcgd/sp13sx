@@ -20,6 +20,9 @@
 - `go run ./cmd/sp13sx`：直接启动程序。
 - `./scripts/dev.sh`：使用示例配置本地运行。
 - `./scripts/test.sh`：测试脚本封装。
+- `./scripts/orchestrator.sh`：启动 task 编排器。
+- `./scripts/task-queue.sh status`：查看 task 队列状态。
+- `./scripts/task-create.sh <task-id> <title>`：创建 task 定义。
 
 如需指定配置文件，可使用：
 
@@ -54,6 +57,18 @@ SP13SX_CONFIG=/path/to/config.yml go run ./cmd/sp13sx
   - 测试结果，例如 `go test ./...`
   - 配置或接口影响说明
   - 若改动 TUI，附终端截图或输出说明
+
+## 长期开发工作流
+
+- task 定义位于 `docs/tasks/definitions/*.md`。
+- 队列位于 `docs/tasks/queue.yaml`。
+- 编排器按 `pending` 顺序串行执行 task。
+- 每个 task 必须经过两个独立 agent：一个实现 agent，一个 review agent。
+- review 失败后，必须把失败内容追加回 task 文档，再重新启动实现 agent。
+- review 通过后，编排器在 `.worktrees/_integration` 中执行本地 `git merge --squash`，然后验证 `go test ./...`。
+- 合入后验证失败时，必须启动 fix agent 修复，再重新集成。
+- 运行中的队列允许继续追加 task，也允许直接编辑 `queue.yaml` 调整后续顺序。
+- 实现或修复 task 时，优先阅读 `docs/workflow/README.md`、`docs/tasks/README.md` 和对应 task 文档。
 
 ## 安全与配置建议
 

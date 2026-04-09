@@ -1,0 +1,38 @@
+# error_recovery - 错误恢复场景
+# 测试 TUI 对错误事件的正确处理
+
+name: error_recovery
+description: 测试错误处理和恢复
+
+turns:
+  # 第一轮：模拟 API 错误
+  - match_input: "trigger error"
+    response_id: "resp_001"
+    events:
+      - type: message
+        content: "即将触发错误..."
+        delay: 50ms
+      - type: error
+        error: "模拟的 API 错误：连接超时"
+        delay: 100ms
+
+  # 第二轮：错误后恢复正常
+  - match_input: "retry"
+    response_id: "resp_002"
+    events:
+      - type: message
+        content: "重试成功！"
+        delay: 50ms
+
+  # 第三轮：模拟工具调用错误
+  - match_input: "run failing tool"
+    response_id: "resp_003"
+    events:
+      - type: tool_call
+        tool_call:
+          id: "tool_1"
+          call_id: "call_001"
+          name: "run_command"
+          arguments:
+            command: "exit 1"
+        delay: 100ms

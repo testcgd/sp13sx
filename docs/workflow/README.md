@@ -40,6 +40,16 @@
 ./scripts/orchestrator.sh
 ```
 
+## 如何添加 Task
+
+先创建 task 定义：
+
+```bash
+./scripts/task-create.sh 002 add-config-tests
+```
+
+再把 task id 追加到 `docs/tasks/queue.yaml` 的 `pending` 中。编排器每轮都会重新读取队列，所以运行中直接编辑该文件即可调整后续顺序。
+
 常用辅助命令：
 
 ```bash

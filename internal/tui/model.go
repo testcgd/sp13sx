@@ -128,3 +128,18 @@ func (m *Model) submitInput() tea.Cmd {
 	}
 	return streamCmd(stream)
 }
+
+// Status 返回当前状态（用于测试）
+func (m Model) Status() string {
+	return m.status
+}
+
+// Messages 返回消息列表（用于测试）
+func (m Model) Messages() []domain.Message {
+	return m.messages
+}
+
+// Error 返回当前错误（用于测试）
+func (m Model) Error() error {
+	return m.err
+}

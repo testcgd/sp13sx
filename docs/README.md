@@ -29,3 +29,11 @@
 - `internal/llm/openai/*`
 - `internal/mcp/manager.go`
 - `internal/tui/*`
+
+## 工作流入口
+
+- 启动编排器：`./scripts/orchestrator.sh`
+- 查看队列：`./scripts/task-queue.sh status`
+- 创建 task：`./scripts/task-create.sh <task-id> <title>`
+- 工作流说明：`docs/workflow/README.md`
+- task 说明：`docs/tasks/README.md`

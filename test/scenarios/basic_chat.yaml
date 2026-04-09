@@ -1,0 +1,42 @@
+# basic_chat - 基础对话场景
+# 用于测试 TUI 的基本消息显示和用户交互
+
+name: basic_chat
+description: 测试基础对话流程
+
+turns:
+  # 第一轮：简单问候
+  - match_input: "hello"
+    response_id: "resp_001"
+    events:
+      - type: message
+        content: "你好"
+        delay: 50ms
+      - type: message
+        content: "！我是 sp13sx，一个终端编程助手。"
+        delay: 100ms
+
+  # 第二轮：询问帮助
+  - match_input: "help"
+    response_id: "resp_002"
+    events:
+      - type: message
+        content: "我可以帮助你：\n"
+        delay: 50ms
+      - type: message
+        content: "- 读取和分析代码文件\n"
+        delay: 30ms
+      - type: message
+        content: "- 执行命令\n"
+        delay: 30ms
+      - type: message
+        content: "- 回答编程问题"
+        delay: 30ms
+
+  # 第三轮：通用响应（正则匹配）
+  - match_pattern: ".*"
+    response_id: "resp_003"
+    events:
+      - type: message
+        content: "我收到了你的消息。"
+        delay: 50ms
