@@ -1,7 +1,7 @@
 ---
 id: "001-bootstrap-autonomous-workflow"
 title: "Bootstrap autonomous workflow"
-status: "pending"
+status: "in_progress"
 review_attempts: 0
 max_review_attempts: 5
 labels: ["workflow", "automation"]
