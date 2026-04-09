@@ -30,7 +30,7 @@ ensure_layout() {
 }
 
 ensure_integration_worktree() {
-  if [[ ! -d "$INTEGRATION_WORKTREE/.git" ]]; then
+  if [[ ! -e "$INTEGRATION_WORKTREE/.git" ]]; then
     git worktree add "$INTEGRATION_WORKTREE" -b "$INTEGRATION_BRANCH" "$MASTER_BRANCH"
   fi
 }

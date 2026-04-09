@@ -9,12 +9,3 @@ pending:
   - "002-upgrade-tui-interaction"
 
 history:
-  - id: "900-async-workflow-smoke"
-    status: completed
-    completed_at: "2026-04-09T21:22:48+08:00"
-  - id: "901-root-sync-smoke"
-    status: completed
-    completed_at: "2026-04-09T21:51:23+08:00"
-  - id: "902-root-sync-confirmation"
-    status: completed
-    completed_at: "2026-04-09T21:53:38+08:00"

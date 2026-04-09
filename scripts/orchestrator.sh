@@ -61,9 +61,56 @@ integrate_task_branch() {
 }
 
 advance_master_branch() {
+  local previous_sha
+  previous_sha=$(git rev-parse "$MASTER_BRANCH")
+  local root_dirty_file
+  root_dirty_file=$(mktemp)
+  collect_root_dirty_paths > "$root_dirty_file"
   local merged_sha
   merged_sha=$(git -C "$INTEGRATION_WORKTREE" rev-parse HEAD)
   git update-ref "refs/heads/$MASTER_BRANCH" "$merged_sha"
+  sync_root_worktree_after_advance "$previous_sha" "$merged_sha" "$root_dirty_file"
+  rm -f "$root_dirty_file"
+}
+
+collect_root_dirty_paths() {
+  {
+    git -C "$ROOT_DIR" diff --name-only
+    git -C "$ROOT_DIR" diff --cached --name-only
+    git -C "$ROOT_DIR" ls-files --others --exclude-standard
+  } | sort -u
+}
+
+sync_root_worktree_after_advance() {
+  local previous_sha="$1"
+  local merged_sha="$2"
+  local root_dirty_file="$3"
+
+  if [[ "$ROOT_DIR" == "$INTEGRATION_WORKTREE" ]]; then
+    return 0
+  fi
+
+  local changed_paths=()
+  mapfile -t changed_paths < <(git -C "$ROOT_DIR" diff --name-only "$previous_sha" "$merged_sha")
+  if [[ ${#changed_paths[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  local synced=0
+  local skipped=0
+  local path
+  for path in "${changed_paths[@]}"; do
+    if [[ -s "$root_dirty_file" ]] && grep -Fxq "$path" "$root_dirty_file"; then
+      skipped=$((skipped + 1))
+      continue
+    fi
+    git -C "$ROOT_DIR" restore --source="$merged_sha" --staged --worktree -- "$path"
+    synced=$((synced + 1))
+  done
+
+  if [[ $synced -gt 0 || $skipped -gt 0 ]]; then
+    log "root worktree sync: synced=$synced skipped=$skipped"
+  fi
 }
 
 process_task() {

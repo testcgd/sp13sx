@@ -14,8 +14,12 @@ review_file="$task_review_dir/review-$review_number.md"
 mkdir -p "$task_review_dir"
 
 "$OPENCODE_BIN" run \
-  --config "$ROOT_DIR/.agent/review.md" \
-  --cwd "$worktree_path" \
-  "Review task $(task_file_for "$task_id") and write report to $review_file"
+  --dir "$worktree_path" \
+  --agent build \
+  --dangerously-skip-permissions \
+  -f "$ROOT_DIR/.agent/review.md" \
+  -f "$(task_file_for "$task_id")" \
+  -- \
+  "Review the attached task implementation. Follow .agent/review.md exactly, run the required checks, and write the review report to $review_file." >&2
 
 printf '%s\n' "$review_file"

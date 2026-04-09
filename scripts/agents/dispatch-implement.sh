@@ -10,10 +10,27 @@ worktree_path="$2"
 task_file=$(task_file_for "$task_id")
 review_file="${3:-}"
 
-cmd=("$OPENCODE_BIN" run --config "$ROOT_DIR/.agent/agent.md" --cwd "$worktree_path" "Implement task from $task_file")
+prompt="Implement the task described in the attached files. Follow the repository instructions in .agent/agent.md. Work only in this worktree, complete the task end-to-end, run relevant validation, and create a git commit for the task if the implementation succeeds."
 
 if [[ -n "$review_file" ]]; then
-  cmd=("$OPENCODE_BIN" run --config "$ROOT_DIR/.agent/agent.md" --cwd "$worktree_path" "Implement task from $task_file and address feedback from $review_file")
+  prompt="Implement the task described in the attached files and address the attached review feedback. Follow the repository instructions in .agent/agent.md. Work only in this worktree, complete the task end-to-end, run relevant validation, and create a git commit for the task if the implementation succeeds."
+  "$OPENCODE_BIN" run \
+    --dir "$worktree_path" \
+    --agent build \
+    --dangerously-skip-permissions \
+    -f "$ROOT_DIR/.agent/agent.md" \
+    -f "$task_file" \
+    -f "$review_file" \
+    -- \
+    "$prompt"
+  exit $?
 fi
 
-"${cmd[@]}"
+"$OPENCODE_BIN" run \
+  --dir "$worktree_path" \
+  --agent build \
+  --dangerously-skip-permissions \
+  -f "$ROOT_DIR/.agent/agent.md" \
+  -f "$task_file" \
+  -- \
+  "$prompt"
