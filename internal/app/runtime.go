@@ -248,7 +248,16 @@ func (r *Runtime) runTurnLoop(ctx context.Context, req llm.GenerateRequest, out 
 		}
 
 		var toolCalls []*llm.ToolCall
+		var accumulatedReasoning string
+		var accumulatedContent string
+
 		for event := range stream {
+			if event.Type == "reasoning" {
+				accumulatedReasoning += event.ReasoningContent
+			}
+			if event.Type == "message" {
+				accumulatedContent += event.Content
+			}
 			if event.Type == "tool_call" && event.ToolCall != nil {
 				toolCalls = append(toolCalls, event.ToolCall)
 			}
@@ -276,7 +285,19 @@ func (r *Runtime) runTurnLoop(ctx context.Context, req llm.GenerateRequest, out 
 		r.isRunningTool = true
 		r.mu.Unlock()
 
-		nextInput := make([]llm.InputItem, 0, len(toolCalls))
+		assistantToolCalls := make([]llm.ToolCall, len(toolCalls))
+		for i, tc := range toolCalls {
+			assistantToolCalls[i] = llm.ToolCall{
+				ID:        tc.ID,
+				CallID:    tc.CallID,
+				Name:      tc.Name,
+				Arguments: tc.Arguments,
+			}
+		}
+
+		nextInput := make([]llm.InputItem, 0, len(toolCalls)+1)
+		nextInput = append(nextInput, llm.AssistantContextInput(accumulatedContent, accumulatedReasoning, assistantToolCalls))
+
 		for _, call := range toolCalls {
 			invocationID := util.NewID("tool")
 			now := util.NowUTC()

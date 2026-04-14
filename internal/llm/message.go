@@ -15,3 +15,12 @@ func ToolResultInput(callID string, toolName string, content string) InputItem {
 		Content:  content,
 	}
 }
+
+func AssistantContextInput(content string, reasoningContent string, toolCalls []ToolCall) InputItem {
+	return InputItem{
+		Type:             "assistant_context",
+		Content:          content,
+		ReasoningContent: reasoningContent,
+		ToolCalls:        toolCalls,
+	}
+}

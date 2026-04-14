@@ -3,10 +3,12 @@ package llm
 import "context"
 
 type InputItem struct {
-	Type     string
-	Content  string
-	CallID   string
-	ToolName string
+	Type             string
+	Content          string
+	CallID           string
+	ToolName         string
+	ReasoningContent string
+	ToolCalls        []ToolCall
 }
 
 type ToolDefinition struct {

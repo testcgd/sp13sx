@@ -101,6 +101,25 @@ func (b *ChatBackend) Generate(ctx context.Context, req llm.GenerateRequest) (<-
 				Role:    "user",
 				Content: item.Content,
 			})
+		case "assistant_context":
+			toolCalls := make([]toolCallMsg, len(item.ToolCalls))
+			for i, tc := range item.ToolCalls {
+				argsJSON, _ := json.Marshal(tc.Arguments)
+				toolCalls[i] = toolCallMsg{
+					ID:   tc.ID,
+					Type: "function",
+					Function: functionMsg{
+						Name:      tc.Name,
+						Arguments: string(argsJSON),
+					},
+				}
+			}
+			b.messages = append(b.messages, chatMessage{
+				Role:             "assistant",
+				Content:          item.Content,
+				ReasoningContent: item.ReasoningContent,
+				ToolCalls:        toolCalls,
+			})
 		case "tool_result":
 			b.messages = append(b.messages, chatMessage{
 				Role:       "tool",
@@ -148,6 +167,7 @@ func (b *ChatBackend) processStream(stream <-chan []byte, errs <-chan error, out
 	defer close(out)
 
 	partialToolCalls := make(map[int]*llm.ToolCall)
+	emittedToolCalls := make(map[int]bool)
 	var assistantContent string
 	var reasoningContent string
 
@@ -200,6 +220,11 @@ func (b *ChatBackend) processStream(stream <-chan []byte, errs <-chan error, out
 					existing.Arguments = appendArgs(existing, tc.Function.Arguments)
 				}
 			}
+
+			if tc, ok := partialToolCalls[idx]; ok && isCompleteToolCall(tc) && !emittedToolCalls[idx] {
+				emittedToolCalls[idx] = true
+				out <- llm.StreamEvent{Type: "tool_call", ToolCall: tc}
+			}
 		}
 
 		if choice.FinishReason != "" {
@@ -224,7 +249,6 @@ func (b *ChatBackend) processStream(stream <-chan []byte, errs <-chan error, out
 					Arguments: string(argsJSON),
 				},
 			})
-			out <- llm.StreamEvent{Type: "tool_call", ToolCall: tc}
 		}
 
 		b.mu.Lock()
@@ -244,6 +268,17 @@ func (b *ChatBackend) processStream(stream <-chan []byte, errs <-chan error, out
 		})
 		b.mu.Unlock()
 	}
+}
+
+func isCompleteToolCall(tc *llm.ToolCall) bool {
+	if tc == nil || tc.ID == "" || tc.Name == "" {
+		return false
+	}
+	if tc.Arguments == nil {
+		return false
+	}
+	_, err := json.Marshal(tc.Arguments)
+	return err == nil
 }
 
 func parseArgs(args string) map[string]any {

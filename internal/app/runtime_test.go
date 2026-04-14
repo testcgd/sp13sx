@@ -85,15 +85,21 @@ func TestRunTurnLoopToolRoundTrip(t *testing.T) {
 		t.Fatalf("expected 2 backend requests, got %d", len(requests))
 	}
 
-	if len(requests[1].Input) != 1 || requests[1].Input[0].Type != "tool_result" {
-		t.Fatalf("expected tool_result input, got %#v", requests[1].Input)
+	if len(requests[1].Input) != 2 {
+		t.Fatalf("expected 2 input items (assistant_context + tool_result), got %d", len(requests[1].Input))
 	}
-	if requests[1].Input[0].ToolName != "echo_tool" {
-		t.Fatalf("expected tool name echo_tool, got %q", requests[1].Input[0].ToolName)
+	if requests[1].Input[0].Type != "assistant_context" {
+		t.Fatalf("expected first input to be assistant_context, got %q", requests[1].Input[0].Type)
+	}
+	if requests[1].Input[1].Type != "tool_result" {
+		t.Fatalf("expected second input to be tool_result, got %q", requests[1].Input[1].Type)
+	}
+	if requests[1].Input[1].ToolName != "echo_tool" {
+		t.Fatalf("expected tool name echo_tool, got %q", requests[1].Input[1].ToolName)
 	}
 
-	if !strings.Contains(requests[1].Input[0].Content, "\"echo\":\"hello\"") {
-		t.Fatalf("expected tool output to be passed back, got %q", requests[1].Input[0].Content)
+	if !strings.Contains(requests[1].Input[1].Content, "\"echo\":\"hello\"") {
+		t.Fatalf("expected tool output to be passed back, got %q", requests[1].Input[1].Content)
 	}
 
 	foundToolCall := false
@@ -119,6 +125,92 @@ func TestRunTurnLoopToolRoundTrip(t *testing.T) {
 	}
 	if len(toolRows) != 2 {
 		t.Fatalf("expected 2 tool call records, got %d", len(toolRows))
+	}
+}
+
+func TestRunTurnLoopPassesReasoningContent(t *testing.T) {
+	tempDir := t.TempDir()
+
+	var requests []llm.GenerateRequest
+	backend := mockllm.NewBackend(func(_ context.Context, req llm.GenerateRequest) (<-chan llm.StreamEvent, error) {
+		requests = append(requests, req)
+		ch := make(chan llm.StreamEvent, 16)
+		if len(requests) == 1 {
+			ch <- llm.StreamEvent{Type: "reasoning", ReasoningContent: "Let me think..."}
+			ch <- llm.StreamEvent{Type: "reasoning", ReasoningContent: " I need to use a tool."}
+			ch <- llm.StreamEvent{
+				Type: "tool_call",
+				ToolCall: &llm.ToolCall{
+					ID:        "call_1",
+					CallID:    "call_1",
+					Name:      "test_tool",
+					Arguments: map[string]any{"query": "test"},
+				},
+			}
+			close(ch)
+			return ch, nil
+		}
+		ch <- llm.StreamEvent{Type: "message", Content: "final answer"}
+		close(ch)
+		return ch, nil
+	})
+
+	registry := tools.NewRegistry()
+	registry.Register(fakeTool{
+		name: "test_tool",
+		run: func(_ context.Context, args map[string]any) (map[string]any, error) {
+			return map[string]any{"result": args["query"]}, nil
+		},
+	})
+
+	runtime := &Runtime{
+		Config: config.Config{
+			UI: config.UIConfig{RightPaneWidth: 40},
+			Defaults: config.DefaultsConfig{
+				EnabledSkills: []string{},
+			},
+		},
+		StorePaths: store.Paths{
+			MessagesPath:  filepath.Join(tempDir, "messages.jsonl"),
+			ToolCallsPath: filepath.Join(tempDir, "tool_calls.jsonl"),
+		},
+		Backend: backend,
+		Tools:   registry,
+		Session: testSession(),
+	}
+
+	req := llm.GenerateRequest{
+		Model:        "mock-model",
+		Instructions: "base",
+		Input:        []llm.InputItem{llm.UserTextInput("test")},
+		Tools:        buildToolDefinitions(registry),
+	}
+	out := make(chan llm.StreamEvent, 32)
+	go runtime.runTurnLoop(context.Background(), req, out)
+
+	for range out {
+	}
+
+	if len(requests) != 2 {
+		t.Fatalf("expected 2 backend requests, got %d", len(requests))
+	}
+
+	if len(requests[1].Input) != 2 {
+		t.Fatalf("expected 2 input items in second request, got %d", len(requests[1].Input))
+	}
+
+	assistantCtx := requests[1].Input[0]
+	if assistantCtx.Type != "assistant_context" {
+		t.Fatalf("expected first input to be assistant_context, got %q", assistantCtx.Type)
+	}
+	if assistantCtx.ReasoningContent != "Let me think... I need to use a tool." {
+		t.Fatalf("expected reasoning_content to be accumulated, got %q", assistantCtx.ReasoningContent)
+	}
+	if len(assistantCtx.ToolCalls) != 1 {
+		t.Fatalf("expected 1 tool_call in assistant_context, got %d", len(assistantCtx.ToolCalls))
+	}
+	if assistantCtx.ToolCalls[0].Name != "test_tool" {
+		t.Fatalf("expected tool_call name 'test_tool', got %q", assistantCtx.ToolCalls[0].Name)
 	}
 }
 

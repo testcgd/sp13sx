@@ -1,10 +1,16 @@
 version: 1
 
 current:
-  id: "002-upgrade-tui-interaction"
-  started_at: "2026-04-09T22:15:03+08:00"
-  worktree: "/home/cgd/workspace/sp13sx/.worktrees/002-upgrade-tui-interaction"
+  id: ""
+  started_at: ""
+  worktree: ""
 
 pending:
 
 history:
+  - id: "003-fix-tool-calls-index"
+    status: completed
+    completed_at: "2026-04-14T23:57:30+08:00"
+  - id: "005-support-interruptible-multi-turn-guidance"
+    status: completed
+    completed_at: "2026-04-15T00:12:42+08:00"
