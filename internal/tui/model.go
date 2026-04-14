@@ -32,6 +32,7 @@ type Model struct {
 	width             int
 	height            int
 	messages          []domain.Message
+	events            []string
 	status            string
 	err               error
 	rightPane         []string
@@ -81,6 +82,13 @@ func (m *Model) appendMessage(role string, content string) {
 	})
 	m.viewport.SetContent(renderMessages(m.messages, m.reasoningExpanded))
 	m.viewport.GotoBottom()
+}
+
+func (m *Model) appendEvent(event string) {
+	m.events = append(m.events, event)
+	if len(m.events) > 10 {
+		m.events = m.events[len(m.events)-10:]
+	}
 }
 
 func renderMessages(messages []domain.Message, expanded map[string]bool) string {

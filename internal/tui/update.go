@@ -81,12 +81,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = "streaming"
 		case "tool_call":
 			if msg.event.ToolCall != nil {
-				m.appendMessage("system", "Tool requested: "+msg.event.ToolCall.Name)
+				m.appendEvent("Tool requested: " + msg.event.ToolCall.Name)
 				m.status = "running tool"
 				m.updateInputPlaceholder()
 			}
 		case "status":
-			m.appendMessage("system", msg.event.Content)
+			m.appendEvent(msg.event.Content)
 		case "response_id":
 			m.status = "streaming"
 		}

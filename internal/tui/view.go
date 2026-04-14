@@ -34,6 +34,17 @@ func (m Model) View() string {
 	}
 
 	rightLines := append([]string{status, "", "context:"}, m.rightPane...)
+
+	if len(m.events) > 0 {
+		rightLines = append(rightLines, "", "recent events:")
+		for _, event := range m.events {
+			if len(event) > 35 {
+				event = event[:32] + "..."
+			}
+			rightLines = append(rightLines, "  "+event)
+		}
+	}
+
 	right := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		Padding(0, 1).

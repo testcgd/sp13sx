@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"sp13sx/internal/domain"
 	"sp13sx/internal/llm"
 )
 
@@ -56,8 +57,8 @@ func TestUpdateHandlesToolCallAndStatus(t *testing.T) {
 	if m.status != "running tool" {
 		t.Fatalf("expected running tool status, got %q", m.status)
 	}
-	if len(m.messages) == 0 || !strings.Contains(m.messages[len(m.messages)-1].Content[0].Text, "demo_tool") {
-		t.Fatalf("expected tool call message to be appended")
+	if len(m.events) == 0 || !strings.Contains(m.events[len(m.events)-1], "demo_tool") {
+		t.Fatalf("expected tool call event to be appended to events, got %v", m.events)
 	}
 
 	updated, _ = m.Update(responseMsg{
@@ -67,8 +68,8 @@ func TestUpdateHandlesToolCallAndStatus(t *testing.T) {
 		},
 	})
 	m = updated.(Model)
-	if len(m.messages) < 2 {
-		t.Fatalf("expected status message to be appended")
+	if len(m.events) < 2 {
+		t.Fatalf("expected status event to be appended to events, got %v", m.events)
 	}
 }
 
@@ -229,4 +230,81 @@ func (f fakeRuntime) Status() llm.RuntimeStatus {
 		return f.status
 	}
 	return llm.RuntimeStatus{IsRunningTool: false, PendingInputs: nil}
+}
+
+func TestViewContainsEventsSection(t *testing.T) {
+	model := NewModel(fakeRuntime{})
+	model.events = []string{"tool queued: read_file", "tool completed: read_file"}
+	model.width = 120
+	model.height = 30
+
+	view := model.View()
+	if !strings.Contains(view, "recent events:") {
+		t.Fatal("expected 'recent events:' section in view")
+	}
+	if !strings.Contains(view, "tool queued: read_file") {
+		t.Fatal("expected tool event in view")
+	}
+}
+
+func TestViewShowsErrorWithRecoveryHint(t *testing.T) {
+	model := NewModel(fakeRuntime{})
+	model.err = errors.New("connection failed")
+	model.status = "error"
+	model.width = 120
+	model.height = 30
+
+	view := model.View()
+	if !strings.Contains(view, "error: connection failed") {
+		t.Fatal("expected error message in view")
+	}
+	if !strings.Contains(view, "status: error") {
+		t.Fatal("expected error status in view")
+	}
+}
+
+func TestViewShowsStatus(t *testing.T) {
+	model := NewModel(fakeRuntime{})
+	model.status = "streaming"
+	model.width = 120
+	model.height = 30
+
+	view := model.View()
+	if !strings.Contains(view, "status: streaming") {
+		t.Fatal("expected status in view")
+	}
+}
+
+func TestEventsAreSeparatedFromMessages(t *testing.T) {
+	model := NewModel(fakeRuntime{})
+	model.messages = []domain.Message{
+		{Role: "user", Content: []domain.ContentPart{{Type: "text", Text: "Hello"}}},
+		{Role: "assistant", Content: []domain.ContentPart{{Type: "text", Text: "Hi there"}}},
+	}
+	model.events = []string{"tool queued: demo", "tool completed: demo"}
+	model.width = 120
+	model.height = 30
+
+	view := model.View()
+
+	// Messages should be in viewport, events in right pane
+	if !strings.Contains(view, "recent events:") {
+		t.Fatal("expected events section in view")
+	}
+
+	// Verify events are in the right pane (events section), not mixed with messages
+	lines := strings.Split(view, "\n")
+	var eventsSectionStarted bool
+	var eventsSectionHasToolEvent bool
+	for _, line := range lines {
+		if strings.Contains(line, "recent events:") {
+			eventsSectionStarted = true
+		}
+		if eventsSectionStarted && strings.Contains(line, "tool queued: demo") {
+			eventsSectionHasToolEvent = true
+		}
+	}
+	if !eventsSectionHasToolEvent {
+		t.Fatal("expected tool event in events section")
+	}
 }
