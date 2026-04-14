@@ -171,6 +171,8 @@ func (b *ChatBackend) processStream(stream <-chan []byte, errs <-chan error, out
 	var assistantContent string
 	var reasoningContent string
 
+	var hasContent bool
+
 	for raw := range stream {
 		var chunk chatCompletionChunk
 		if err := json.Unmarshal(raw, &chunk); err != nil {
@@ -188,14 +190,20 @@ func (b *ChatBackend) processStream(stream <-chan []byte, errs <-chan error, out
 		if delta.Role == "assistant" && instructions != "" {
 		}
 
-		if delta.ReasoningContent != "" {
-			reasoningContent += delta.ReasoningContent
-			out <- llm.StreamEvent{Type: "reasoning", ReasoningContent: delta.ReasoningContent}
-		}
-
 		if delta.Content != "" {
+			hasContent = true
 			assistantContent += delta.Content
 			out <- llm.StreamEvent{Type: "message", Content: delta.Content}
+		}
+
+		if delta.ReasoningContent != "" {
+			reasoningContent += delta.ReasoningContent
+			if hasContent {
+				out <- llm.StreamEvent{Type: "reasoning", ReasoningContent: delta.ReasoningContent}
+			} else {
+				assistantContent += delta.ReasoningContent
+				out <- llm.StreamEvent{Type: "message", Content: delta.ReasoningContent}
+			}
 		}
 
 		for _, tc := range delta.ToolCalls {
