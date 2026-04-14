@@ -10,3 +10,5 @@ vendor/
 main
 sp13sx
 .opencode/package-lock.json
+test/vhs/output/
+output/

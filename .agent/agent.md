@@ -23,6 +23,8 @@
 - `./scripts/orchestrator.sh`：启动 task 编排器。
 - `./scripts/task-queue.sh status`：查看 task 队列状态。
 - `./scripts/task-create.sh <task-id> <title>`：创建 task 定义。
+- `./test/vhs/run.sh run <tape>`：运行单个 vhs TUI 测试。
+- `./test/vhs/run.sh all`：运行全部 vhs TUI 测试。
 
 如需指定配置文件，可使用：
 
@@ -42,11 +44,27 @@ SP13SX_CONFIG=/path/to/config.yml go run ./cmd/sp13sx
 
 - 使用 Go 原生 `testing` 包。
 - 优先写 mock 驱动测试，不依赖真实 OpenAI 或 MCP 服务。
+- TUI 自动化测试使用 vhs（`test/vhs/`）。
 - 重点覆盖：
   - runtime 工具回环
   - TUI 事件处理
   - JSONL 持久化
   - 配置解析与校验
+
+### VHS TUI 测试
+
+使用 vhs 进行 TUI 自动化测试：
+
+```bash
+# 安装 vhs
+go install github.com/charmbracelet/vhs@latest
+
+# 运行测试
+./test/vhs/run.sh run basic_chat
+./test/vhs/run.sh all
+```
+
+Tape 文件位于 `test/vhs/tapes/`，输出 GIF 位于 `test/vhs/output/`。
 
 ## 提交与合并请求规范
 
