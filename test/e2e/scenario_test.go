@@ -157,6 +157,55 @@ func TestErrorRecoveryScenario(t *testing.T) {
 	}
 }
 
+// TestReasoningScenario 测试推理场景
+func TestReasoningScenario(t *testing.T) {
+	scenario, err := mock.LoadScenario("../scenarios/reasoning.yaml")
+	if err != nil {
+		t.Fatalf("load scenario: %v", err)
+	}
+
+	backend := mock.NewScenarioBackend(scenario)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	req := mock.CreateTestRequest("think about 2+2")
+	stream, err := backend.Generate(ctx, req)
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+
+	var foundReasoning bool
+	var reasoningContent string
+	var messageContent string
+
+	for event := range stream {
+		if event.Type == "reasoning" {
+			foundReasoning = true
+			reasoningContent += event.ReasoningContent
+		}
+		if event.Type == "message" {
+			messageContent += event.Content
+		}
+		if event.Error != nil {
+			t.Fatalf("unexpected error: %v", event.Error)
+		}
+	}
+
+	if !foundReasoning {
+		t.Error("expected reasoning event")
+	}
+	if reasoningContent == "" {
+		t.Error("expected reasoning content to be non-empty")
+	}
+	if messageContent == "" {
+		t.Error("expected message content to be non-empty")
+	}
+
+	t.Logf("Reasoning: %s", reasoningContent)
+	t.Logf("Message: %s", messageContent)
+}
+
 // TestTUIWithMockBackend 测试 TUI 与 Mock Backend 的集成
 func TestTUIWithMockBackend(t *testing.T) {
 	scenario, err := mock.LoadScenarioFromString(`

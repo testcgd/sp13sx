@@ -24,15 +24,16 @@ type Runtime interface {
 }
 
 type Model struct {
-	runtime   Runtime
-	viewport  viewport.Model
-	input     textarea.Model
-	width     int
-	height    int
-	messages  []domain.Message
-	status    string
-	err       error
-	rightPane []string
+	runtime           Runtime
+	viewport          viewport.Model
+	input             textarea.Model
+	width             int
+	height            int
+	messages          []domain.Message
+	status            string
+	err               error
+	rightPane         []string
+	reasoningExpanded map[string]bool
 }
 
 type responseMsg struct {
@@ -46,11 +47,12 @@ func NewModel(runtime Runtime) Model {
 	ta.Focus()
 	ta.SetHeight(3)
 	return Model{
-		runtime:   runtime,
-		viewport:  vp,
-		input:     ta,
-		status:    "ready",
-		rightPane: buildRightPane(runtime),
+		runtime:           runtime,
+		viewport:          vp,
+		input:             ta,
+		status:            "ready",
+		rightPane:         buildRightPane(runtime),
+		reasoningExpanded: make(map[string]bool),
 	}
 }
 
@@ -73,15 +75,34 @@ func (m *Model) appendMessage(role string, content string) {
 		Role:    role,
 		Content: []domain.ContentPart{{Type: "text", Text: content}},
 	})
-	m.viewport.SetContent(renderMessages(m.messages))
+	m.viewport.SetContent(renderMessages(m.messages, m.reasoningExpanded))
 	m.viewport.GotoBottom()
 }
 
-func renderMessages(messages []domain.Message) string {
+func renderMessages(messages []domain.Message, expanded map[string]bool) string {
 	var b strings.Builder
 	for _, msg := range messages {
 		b.WriteString(strings.ToUpper(msg.Role))
 		b.WriteString("\n")
+
+		if len(msg.Reasoning) > 0 {
+			reasoningText := extractText(msg.Reasoning)
+			if expanded[msg.ID] {
+				b.WriteString("[reasoning ▾]\n")
+				b.WriteString(reasoningText)
+				b.WriteString("\n[/reasoning]\n")
+			} else {
+				b.WriteString("[reasoning ▸] ")
+				if len(reasoningText) > 50 {
+					b.WriteString(reasoningText[:50])
+					b.WriteString("...")
+				} else {
+					b.WriteString(reasoningText)
+				}
+				b.WriteString("\n")
+			}
+		}
+
 		for _, part := range msg.Content {
 			b.WriteString(part.Text)
 			b.WriteString("\n")
@@ -89,6 +110,16 @@ func renderMessages(messages []domain.Message) string {
 		b.WriteString("\n")
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func extractText(parts []domain.ContentPart) string {
+	var b strings.Builder
+	for _, part := range parts {
+		if part.Type == "text" {
+			b.WriteString(part.Text)
+		}
+	}
+	return b.String()
 }
 
 func buildRightPane(runtime Runtime) []string {

@@ -32,11 +32,12 @@ type Turn struct {
 
 // Event 定义单个流事件
 type Event struct {
-	Type    string         `yaml:"type"`
-	Content string         `yaml:"content,omitempty"`
-	Delay   time.Duration  `yaml:"delay,omitempty"`
-	Tool    *ToolCallEvent `yaml:"tool_call,omitempty"`
-	Error   string         `yaml:"error,omitempty"`
+	Type             string         `yaml:"type"`
+	Content          string         `yaml:"content,omitempty"`
+	ReasoningContent string         `yaml:"reasoning_content,omitempty"`
+	Delay            time.Duration  `yaml:"delay,omitempty"`
+	Tool             *ToolCallEvent `yaml:"tool_call,omitempty"`
+	Error            string         `yaml:"error,omitempty"`
 }
 
 // ToolCallEvent 定义工具调用事件
@@ -89,6 +90,8 @@ func (e *Event) ToStreamEvent() llm.StreamEvent {
 	switch e.Type {
 	case "message", "status":
 		event.Content = e.Content
+	case "reasoning":
+		event.ReasoningContent = e.ReasoningContent
 	case "response_id":
 		event.ResponseID = e.Content
 	case "tool_call":

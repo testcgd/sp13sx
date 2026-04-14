@@ -285,27 +285,35 @@ func persistAssistantStream(path string, sessionID string, in <-chan llm.StreamE
 	go func() {
 		defer close(out)
 		var final string
+		var reasoning string
 		for event := range in {
 			if event.Type == "message" {
 				final += event.Content
 			}
+			if event.Type == "reasoning" {
+				reasoning += event.ReasoningContent
+			}
 			out <- event
 		}
-		if final == "" {
+		if final == "" && reasoning == "" {
 			return
 		}
 		now := util.NowUTC()
+		msg := domain.Message{
+			ID:        util.NewID("msg"),
+			SessionID: sessionID,
+			Role:      "assistant",
+			Content:   []domain.ContentPart{{Type: "text", Text: final}},
+			CreatedAt: now,
+		}
+		if reasoning != "" {
+			msg.Reasoning = []domain.ContentPart{{Type: "text", Text: reasoning}}
+		}
 		_ = store.SaveMessage(path, store.MessageRecord{
 			ID:        util.NewID("evt"),
 			Type:      "message",
 			CreatedAt: now.Format(timeLayout),
-			Payload: domain.Message{
-				ID:        util.NewID("msg"),
-				SessionID: sessionID,
-				Role:      "assistant",
-				Content:   []domain.ContentPart{{Type: "text", Text: final}},
-				CreatedAt: now,
-			},
+			Payload:   msg,
 		})
 	}()
 	return out

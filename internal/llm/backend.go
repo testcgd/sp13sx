@@ -16,11 +16,12 @@ type ToolDefinition struct {
 }
 
 type StreamEvent struct {
-	Type       string
-	Content    string
-	ResponseID string
-	ToolCall   *ToolCall
-	Error      error
+	Type             string
+	Content          string
+	ReasoningContent string
+	ResponseID       string
+	ToolCall         *ToolCall
+	Error            error
 }
 
 type GenerateRequest struct {

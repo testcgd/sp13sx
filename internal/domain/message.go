@@ -18,6 +18,7 @@ type Message struct {
 	SessionID  string        `json:"session_id"`
 	Role       string        `json:"role"`
 	Content    []ContentPart `json:"content,omitempty"`
+	Reasoning  []ContentPart `json:"reasoning,omitempty"`
 	ToolCalls  []ToolCall    `json:"tool_calls,omitempty"`
 	ToolCallID string        `json:"tool_call_id,omitempty"`
 	CreatedAt  time.Time     `json:"created_at"`

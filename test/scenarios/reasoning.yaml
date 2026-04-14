@@ -1,0 +1,42 @@
+# reasoning - 推理过程场景
+# 测试模型输出 reasoning_content 的处理
+
+name: reasoning
+description: 测试推理过程展示
+
+turns:
+  # 第一轮：带推理的简单回答
+  - match_input: "think about 2+2"
+    response_id: "resp_001"
+    events:
+      - type: reasoning
+        reasoning_content: "The user is asking me to think about a simple addition problem: 2+2."
+        delay: 50ms
+      - type: reasoning
+        reasoning_content: " This is a basic arithmetic question."
+        delay: 30ms
+      - type: message
+        content: "Let me think about this...\n\n2 + 2 = 4"
+        delay: 50ms
+
+  # 第二轮：带推理的复杂回答
+  - match_input: "explain recursion"
+    response_id: "resp_002"
+    events:
+      - type: reasoning
+        reasoning_content: "The user wants an explanation of recursion. I should provide a clear definition and example."
+        delay: 50ms
+      - type: message
+        content: "Recursion is a programming concept where a function calls itself.\n\n"
+        delay: 30ms
+      - type: message
+        content: "A classic example is calculating factorial."
+        delay: 30ms
+
+  # 第三轮：通用响应
+  - match_pattern: ".*"
+    response_id: "resp_003"
+    events:
+      - type: message
+        content: "I received your message."
+        delay: 50ms

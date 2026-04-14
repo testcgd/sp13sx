@@ -27,10 +27,11 @@ type chatRequest struct {
 }
 
 type chatMessage struct {
-	Role       string        `json:"role"`
-	Content    any           `json:"content,omitempty"`
-	ToolCalls  []toolCallMsg `json:"tool_calls,omitempty"`
-	ToolCallID string        `json:"tool_call_id,omitempty"`
+	Role             string        `json:"role"`
+	Content          any           `json:"content,omitempty"`
+	ReasoningContent string        `json:"reasoning_content,omitempty"`
+	ToolCalls        []toolCallMsg `json:"tool_calls,omitempty"`
+	ToolCallID       string        `json:"tool_call_id,omitempty"`
 }
 
 type toolCallMsg struct {
@@ -68,9 +69,10 @@ type chatCompletionChunk struct {
 }
 
 type deltaContent struct {
-	Role      string        `json:"role,omitempty"`
-	Content   string        `json:"content,omitempty"`
-	ToolCalls []toolCallMsg `json:"tool_calls,omitempty"`
+	Role             string        `json:"role,omitempty"`
+	Content          string        `json:"content,omitempty"`
+	ReasoningContent string        `json:"reasoning_content,omitempty"`
+	ToolCalls        []toolCallMsg `json:"tool_calls,omitempty"`
 }
 
 func NewChatBackend(cfg config.Backend) (*ChatBackend, error) {
@@ -146,6 +148,7 @@ func (b *ChatBackend) processStream(stream <-chan []byte, errs <-chan error, out
 
 	partialToolCalls := make(map[int]*llm.ToolCall)
 	var assistantContent string
+	var reasoningContent string
 
 	for raw := range stream {
 		var chunk chatCompletionChunk
@@ -162,6 +165,11 @@ func (b *ChatBackend) processStream(stream <-chan []byte, errs <-chan error, out
 		delta := choice.Delta
 
 		if delta.Role == "assistant" && instructions != "" {
+		}
+
+		if delta.ReasoningContent != "" {
+			reasoningContent += delta.ReasoningContent
+			out <- llm.StreamEvent{Type: "reasoning", ReasoningContent: delta.ReasoningContent}
 		}
 
 		if delta.Content != "" {
@@ -220,16 +228,18 @@ func (b *ChatBackend) processStream(stream <-chan []byte, errs <-chan error, out
 
 		b.mu.Lock()
 		b.messages = append(b.messages, chatMessage{
-			Role:      "assistant",
-			Content:   assistantContent,
-			ToolCalls: toolCalls,
+			Role:             "assistant",
+			Content:          assistantContent,
+			ReasoningContent: reasoningContent,
+			ToolCalls:        toolCalls,
 		})
 		b.mu.Unlock()
-	} else if assistantContent != "" {
+	} else if assistantContent != "" || reasoningContent != "" {
 		b.mu.Lock()
 		b.messages = append(b.messages, chatMessage{
-			Role:    "assistant",
-			Content: assistantContent,
+			Role:             "assistant",
+			Content:          assistantContent,
+			ReasoningContent: reasoningContent,
 		})
 		b.mu.Unlock()
 	}

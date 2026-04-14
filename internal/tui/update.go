@@ -4,6 +4,9 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"sp13sx/internal/domain"
+	"sp13sx/internal/util"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -20,6 +23,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case tea.KeyEnter:
 			return m, m.submitInput()
+		case tea.KeyRunes:
+			if string(msg.Runes) == "r" {
+				m.toggleLastReasoning()
+				return m, nil
+			}
 		}
 	case responseMsg:
 		if msg.event.Error != nil {
@@ -35,9 +43,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.appendMessage("assistant", msg.event.Content)
 			}
-			m.viewport.SetContent(renderMessages(m.messages))
+			m.viewport.SetContent(renderMessages(m.messages, m.reasoningExpanded))
 			m.viewport.GotoBottom()
 			m.status = "ready"
+		case "reasoning":
+			if len(m.messages) > 0 && m.messages[len(m.messages)-1].Role == "assistant" {
+				last := &m.messages[len(m.messages)-1]
+				if len(last.Reasoning) == 0 {
+					last.Reasoning = []domain.ContentPart{{Type: "text", Text: msg.event.ReasoningContent}}
+				} else {
+					last.Reasoning[0].Text += msg.event.ReasoningContent
+				}
+			} else {
+				m.messages = append(m.messages, domain.Message{
+					ID:        util.NewID("msg"),
+					Role:      "assistant",
+					Reasoning: []domain.ContentPart{{Type: "text", Text: msg.event.ReasoningContent}},
+				})
+			}
+			m.viewport.SetContent(renderMessages(m.messages, m.reasoningExpanded))
+			m.viewport.GotoBottom()
+			m.status = "streaming"
 		case "tool_call":
 			if msg.event.ToolCall != nil {
 				m.appendMessage("system", "Tool requested: "+msg.event.ToolCall.Name)
@@ -58,6 +84,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.viewport, cmd = m.viewport.Update(msg)
 	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
+}
+
+func (m *Model) toggleLastReasoning() {
+	for i := len(m.messages) - 1; i >= 0; i-- {
+		if len(m.messages[i].Reasoning) > 0 {
+			if m.messages[i].ID == "" {
+				m.messages[i].ID = util.NewID("msg")
+			}
+			m.reasoningExpanded[m.messages[i].ID] = !m.reasoningExpanded[m.messages[i].ID]
+			m.viewport.SetContent(renderMessages(m.messages, m.reasoningExpanded))
+			break
+		}
+	}
 }
 
 func (m *Model) handleCommand(command string) tea.Cmd {
