@@ -42,3 +42,7 @@ type Backend interface {
 	Name() string
 	Generate(ctx context.Context, req GenerateRequest) (<-chan StreamEvent, error)
 }
+
+type ReasoningContentClearer interface {
+	ClearReasoningContent()
+}

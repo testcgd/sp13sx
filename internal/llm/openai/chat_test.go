@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"sp13sx/internal/domain"
 	"sp13sx/internal/llm"
 )
 
@@ -211,5 +212,54 @@ func TestProcessStreamSingleToolCall(t *testing.T) {
 	}
 	if tc.Arguments["path"] != "test.txt" {
 		t.Errorf("expected tool call Arguments[path] 'test.txt', got %v", tc.Arguments["path"])
+	}
+}
+
+func TestLoadHistoryLoadsReasoningContent(t *testing.T) {
+	b := &ChatBackend{
+		name:     "test",
+		messages: make([]chatMessage, 0),
+	}
+
+	messages := []domain.Message{
+		{
+			Role:    "user",
+			Content: []domain.ContentPart{{Type: "text", Text: "Hello"}},
+		},
+		{
+			Role:      "assistant",
+			Content:   []domain.ContentPart{{Type: "text", Text: "Hi there"}},
+			Reasoning: []domain.ContentPart{{Type: "text", Text: "Let me think about how to respond."}},
+		},
+	}
+
+	b.LoadHistory(messages)
+
+	if len(b.messages) != 2 {
+		t.Fatalf("expected 2 messages, got %d", len(b.messages))
+	}
+
+	if b.messages[1].ReasoningContent != "Let me think about how to respond." {
+		t.Errorf("expected ReasoningContent to be loaded, got %q", b.messages[1].ReasoningContent)
+	}
+}
+
+func TestClearReasoningContent(t *testing.T) {
+	b := &ChatBackend{
+		name: "test",
+		messages: []chatMessage{
+			{Role: "user", Content: "Hello"},
+			{Role: "assistant", Content: "Hi", ReasoningContent: "Thinking..."},
+			{Role: "user", Content: "How are you?"},
+			{Role: "assistant", Content: "Good", ReasoningContent: "More thinking..."},
+		},
+	}
+
+	b.ClearReasoningContent()
+
+	for i, msg := range b.messages {
+		if msg.Role == "assistant" && msg.ReasoningContent != "" {
+			t.Errorf("expected assistant message %d to have empty ReasoningContent, got %q", i, msg.ReasoningContent)
+		}
 	}
 }

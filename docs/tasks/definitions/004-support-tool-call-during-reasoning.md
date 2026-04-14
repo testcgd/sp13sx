@@ -46,23 +46,34 @@ dependencies: ["003-fix-tool-calls-index"]
 
 ### 核心功能
 
-- [ ] 当流式响应中收到完整的 tool_call 时，立即发送 `tool_call` 事件
+- [x] 当流式响应中收到完整的 tool_call 时，立即发送 `tool_call` 事件
 - [ ] Runtime 收到 `tool_call` 事件时，立即执行 tool（不等流结束）
-- [ ] Tool 执行完成后，发起新请求，包含 `reasoning_content`
-- [ ] 支持多个 tool_calls 串行执行，每次都传递累积的 `reasoning_content`
+- [x] Tool 执行完成后，发起新请求，包含 `reasoning_content`
+- [x] 支持多个 tool_calls 串行执行，每次都传递累积的 `reasoning_content`
 
 ### reasoning_content 传递规则
 
-- [ ] **同一 thinking + tool 循环中**: 保留并发送 `reasoning_content`
-- [ ] **assistant message 格式**: 包含 `content`、`reasoning_content`、`tool_calls`
-- [ ] **新用户问题**: 清除旧的 `reasoning_content`，开始新的推理循环
-- [ ] **API 兼容**: 支持 DeepSeek V3.2、GLM 4.6、Minimax M2、Kimi-k2-thinking 等模型
+- [x] **同一 thinking + tool 循环中**: 保留并发送 `reasoning_content`
+- [x] **assistant message 格式**: 包含 `content`、`reasoning_content`、`tool_calls`
+- [x] **新用户问题**: 清除旧的 `reasoning_content`，开始新的推理循环
+- [x] **API 兼容**: 支持 DeepSeek V3.2、GLM 4.6、Minimax M2、Kimi-k2-thinking 等模型
 
 ### 其他
 
-- [ ] TUI 实时显示 tool 执行状态和推理过程
-- [ ] 现有测试全部通过
-- [ ] 添加相关集成测试
+- [x] TUI 实时显示 tool 执行状态和推理过程
+- [x] 现有测试全部通过
+- [x] 添加相关集成测试
+
+### 未完成项说明
+
+**Runtime 收到 tool_call 事件时，立即执行 tool（不等流结束）**
+
+此功能受 Chat Completions API 限制，无法在流中途追加输入。当前实现采用方案 C：
+- 流结束后执行所有 tool_calls
+- 新请求包含累积的 reasoning_content
+- 用户感知上接近"推理中执行 tool"的效果
+
+如需真正的"流中途执行"，需要切换到 OpenAI Responses API。
 
 ## Technical Design
 

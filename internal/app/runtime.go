@@ -166,6 +166,10 @@ func (r *Runtime) Send(ctx context.Context, text string) (<-chan llm.StreamEvent
 	}
 	r.mu.Unlock()
 
+	if clearer, ok := r.Backend.(llm.ReasoningContentClearer); ok {
+		clearer.ClearReasoningContent()
+	}
+
 	now := util.NowUTC()
 	userMsg := domain.Message{
 		ID:        util.NewID("msg"),

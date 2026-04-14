@@ -322,6 +322,9 @@ func (b *ChatBackend) LoadHistory(messages []domain.Message) {
 			cm.Content = extractTextContent(msg.Content)
 		case "assistant":
 			cm.Content = extractTextContent(msg.Content)
+			if len(msg.Reasoning) > 0 {
+				cm.ReasoningContent = extractTextContent(msg.Reasoning)
+			}
 			if len(msg.ToolCalls) > 0 {
 				cm.ToolCalls = make([]toolCallMsg, len(msg.ToolCalls))
 				for i, tc := range msg.ToolCalls {
@@ -349,6 +352,16 @@ func (b *ChatBackend) ClearHistory() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.messages = make([]chatMessage, 0)
+}
+
+func (b *ChatBackend) ClearReasoningContent() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for i := range b.messages {
+		if b.messages[i].Role == "assistant" {
+			b.messages[i].ReasoningContent = ""
+		}
+	}
 }
 
 func extractTextContent(parts []domain.ContentPart) string {
