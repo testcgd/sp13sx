@@ -174,6 +174,116 @@ func TestRuntimeCloseReturnsBackendError(t *testing.T) {
 	}
 }
 
+func TestRuntimeSendQueuesInputWhenToolRunning(t *testing.T) {
+	tempDir := t.TempDir()
+
+	backend := mockllm.NewBackend(func(ctx context.Context, req llm.GenerateRequest) (<-chan llm.StreamEvent, error) {
+		ch := make(chan llm.StreamEvent, 8)
+		go func() {
+			defer close(ch)
+			ch <- llm.StreamEvent{Type: "response_id", ResponseID: "resp_1"}
+			ch <- llm.StreamEvent{
+				Type: "tool_call",
+				ToolCall: &llm.ToolCall{
+					ID:        "item_1",
+					CallID:    "call_1",
+					Name:      "slow_tool",
+					Arguments: map[string]any{},
+				},
+			}
+			<-ctx.Done()
+		}()
+		return ch, nil
+	})
+
+	registry := tools.NewRegistry()
+	registry.Register(fakeTool{
+		name: "slow_tool",
+		run: func(ctx context.Context, args map[string]any) (map[string]any, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	})
+
+	runtime := &Runtime{
+		Config: config.Config{
+			UI: config.UIConfig{RightPaneWidth: 40},
+			Defaults: config.DefaultsConfig{
+				EnabledSkills: []string{},
+			},
+		},
+		StorePaths: store.Paths{
+			MessagesPath:  filepath.Join(tempDir, "messages.jsonl"),
+			ToolCallsPath: filepath.Join(tempDir, "tool_calls.jsonl"),
+		},
+		Backend: backend,
+		Tools:   registry,
+		Session: testSession(),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	stream, err := runtime.Send(ctx, "first message")
+	if err != nil {
+		t.Fatalf("Send failed: %v", err)
+	}
+
+	<-stream
+
+	runtime.mu.Lock()
+	runtime.isRunningTool = true
+	runtime.mu.Unlock()
+
+	queuedStream, err := runtime.Send(context.Background(), "queued message")
+	if err != nil {
+		t.Fatalf("Send during tool execution failed: %v", err)
+	}
+
+	event := <-queuedStream
+	if event.Type != "input_queued" {
+		t.Fatalf("expected input_queued event, got %q", event.Type)
+	}
+	if event.Content != "queued message" {
+		t.Fatalf("expected queued message content, got %q", event.Content)
+	}
+
+	status := runtime.Status()
+	if len(status.PendingInputs) != 1 {
+		t.Fatalf("expected 1 pending input, got %d", len(status.PendingInputs))
+	}
+	if status.PendingInputs[0] != "queued message" {
+		t.Fatalf("expected 'queued message', got %q", status.PendingInputs[0])
+	}
+}
+
+func TestRuntimeCancelCancelsCurrentContext(t *testing.T) {
+	cancelCalled := false
+	runtime := &Runtime{
+		currentCancel: func() { cancelCalled = true },
+	}
+
+	runtime.Cancel()
+	if !cancelCalled {
+		t.Fatal("expected Cancel to call currentCancel")
+	}
+}
+
+func TestRuntimeStatusReturnsCorrectState(t *testing.T) {
+	runtime := &Runtime{
+		isRunningTool: true,
+		pendingInputs: []string{"pending1", "pending2"},
+	}
+
+	status := runtime.Status()
+	if !status.IsRunningTool {
+		t.Fatal("expected IsRunningTool to be true")
+	}
+	if len(status.PendingInputs) != 2 {
+		t.Fatalf("expected 2 pending inputs, got %d", len(status.PendingInputs))
+	}
+}
+
 type fakeTool struct {
 	name string
 	run  func(context.Context, map[string]any) (map[string]any, error)

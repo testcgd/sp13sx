@@ -21,6 +21,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC:
 			return m, tea.Quit
+		case tea.KeyEscape:
+			if len(m.pendingInputs) > 0 {
+				m.interruptMode = !m.interruptMode
+				if m.interruptMode {
+					m.runtime.Cancel()
+					m.status = "interrupted"
+				}
+			}
+			return m, nil
 		case tea.KeyEnter:
 			return m, m.submitInput()
 		case tea.KeyRunes:
@@ -36,6 +45,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		switch msg.event.Type {
+		case "input_queued":
+			m.pendingInputs = append(m.pendingInputs, msg.event.Content)
+			m.interruptMode = false
+			m.updateInputPlaceholder()
+			return m, nil
 		case "message":
 			if len(m.messages) > 0 && m.messages[len(m.messages)-1].Role == "assistant" {
 				last := &m.messages[len(m.messages)-1]
@@ -46,6 +60,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.SetContent(renderMessages(m.messages, m.reasoningExpanded))
 			m.viewport.GotoBottom()
 			m.status = "ready"
+			m.updateInputPlaceholder()
 		case "reasoning":
 			if len(m.messages) > 0 && m.messages[len(m.messages)-1].Role == "assistant" {
 				last := &m.messages[len(m.messages)-1]
@@ -68,6 +83,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.event.ToolCall != nil {
 				m.appendMessage("system", "Tool requested: "+msg.event.ToolCall.Name)
 				m.status = "running tool"
+				m.updateInputPlaceholder()
 			}
 		case "status":
 			m.appendMessage("system", msg.event.Content)
@@ -84,6 +100,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.viewport, cmd = m.viewport.Update(msg)
 	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
+}
+
+func (m *Model) updateInputPlaceholder() {
+	status := m.runtime.Status()
+	if status.IsRunningTool {
+		m.input.Placeholder = "Input will be queued... (ESC to interrupt)"
+	} else {
+		m.input.Placeholder = "Ask the agent or run /help"
+	}
 }
 
 func (m *Model) toggleLastReasoning() {

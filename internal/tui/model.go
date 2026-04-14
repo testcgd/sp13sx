@@ -14,6 +14,8 @@ import (
 
 type Runtime interface {
 	Send(ctx context.Context, text string) (<-chan llm.StreamEvent, error)
+	Cancel()
+	Status() llm.RuntimeStatus
 	BackendName() string
 	ModelName() string
 	SessionTitle() string
@@ -34,6 +36,8 @@ type Model struct {
 	err               error
 	rightPane         []string
 	reasoningExpanded map[string]bool
+	pendingInputs     []string
+	interruptMode     bool
 }
 
 type responseMsg struct {
@@ -151,6 +155,7 @@ func (m *Model) submitInput() tea.Cmd {
 
 	m.appendMessage("user", text)
 	m.status = "waiting for assistant"
+	m.updateInputPlaceholder()
 	stream, err := m.runtime.Send(context.Background(), text)
 	if err != nil {
 		m.err = err

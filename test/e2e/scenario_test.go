@@ -250,6 +250,10 @@ func (r *testRuntime) EnabledSkillNames() []string    { return []string{} }
 func (r *testRuntime) DiscoveredSkillNames() []string { return []string{} }
 func (r *testRuntime) MCPStatusLines() []string       { return []string{} }
 func (r *testRuntime) RightPaneWidth() int            { return 40 }
+func (r *testRuntime) Cancel()                        {}
+func (r *testRuntime) Status() llm.RuntimeStatus {
+	return llm.RuntimeStatus{IsRunningTool: false, PendingInputs: nil}
+}
 
 // createTestConfig 创建测试配置
 func createTestConfig() config.Config {

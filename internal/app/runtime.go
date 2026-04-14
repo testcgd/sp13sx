@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	"sp13sx/internal/config"
 	"sp13sx/internal/domain"
@@ -29,6 +30,11 @@ type Runtime struct {
 	MCP            *mcp.Manager
 	Skills         *skills.Registry
 	Session        domain.Session
+
+	mu            sync.RWMutex
+	isRunningTool bool
+	currentCancel context.CancelFunc
+	pendingInputs []string
 }
 
 func NewRuntime(cfg config.Config) (*Runtime, error) {
@@ -149,6 +155,17 @@ func (r *Runtime) Close() error {
 }
 
 func (r *Runtime) Send(ctx context.Context, text string) (<-chan llm.StreamEvent, error) {
+	r.mu.Lock()
+	if r.isRunningTool {
+		r.pendingInputs = append(r.pendingInputs, text)
+		r.mu.Unlock()
+		ch := make(chan llm.StreamEvent, 1)
+		ch <- llm.StreamEvent{Type: "input_queued", Content: text}
+		close(ch)
+		return ch, nil
+	}
+	r.mu.Unlock()
+
 	now := util.NowUTC()
 	userMsg := domain.Message{
 		ID:        util.NewID("msg"),
@@ -178,6 +195,25 @@ func (r *Runtime) Send(ctx context.Context, text string) (<-chan llm.StreamEvent
 	return persistAssistantStream(r.StorePaths.MessagesPath, r.Session.ID, stream), nil
 }
 
+func (r *Runtime) Cancel() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.currentCancel != nil {
+		r.currentCancel()
+	}
+}
+
+func (r *Runtime) Status() llm.RuntimeStatus {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	pending := make([]string, len(r.pendingInputs))
+	copy(pending, r.pendingInputs)
+	return llm.RuntimeStatus{
+		IsRunningTool: r.isRunningTool,
+		PendingInputs: pending,
+	}
+}
+
 func buildToolDefinitions(registry *tools.Registry) []llm.ToolDefinition {
 	all := registry.Definitions()
 	out := make([]llm.ToolDefinition, 0, len(all))
@@ -193,6 +229,13 @@ func buildToolDefinitions(registry *tools.Registry) []llm.ToolDefinition {
 
 func (r *Runtime) runTurnLoop(ctx context.Context, req llm.GenerateRequest, out chan<- llm.StreamEvent) {
 	defer close(out)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	r.mu.Lock()
+	r.currentCancel = cancel
+	r.mu.Unlock()
 
 	current := req
 	executor := tools.NewExecutor(r.Tools)
@@ -213,8 +256,25 @@ func (r *Runtime) runTurnLoop(ctx context.Context, req llm.GenerateRequest, out 
 		}
 
 		if len(toolCalls) == 0 {
+			r.mu.Lock()
+			r.isRunningTool = false
+			pending := r.pendingInputs
+			r.pendingInputs = nil
+			r.currentCancel = nil
+			r.mu.Unlock()
+
+			if len(pending) > 0 {
+				for _, input := range pending {
+					current.Input = append(current.Input, llm.UserTextInput(input))
+				}
+				continue
+			}
 			return
 		}
+
+		r.mu.Lock()
+		r.isRunningTool = true
+		r.mu.Unlock()
 
 		nextInput := make([]llm.InputItem, 0, len(toolCalls))
 		for _, call := range toolCalls {
@@ -270,6 +330,10 @@ func (r *Runtime) runTurnLoop(ctx context.Context, req llm.GenerateRequest, out 
 
 			nextInput = append(nextInput, llm.ToolResultInput(call.CallID, call.Name, outputText))
 		}
+
+		r.mu.Lock()
+		r.isRunningTool = false
+		r.mu.Unlock()
 
 		current = llm.GenerateRequest{
 			Model:        r.Session.Model,

@@ -24,6 +24,11 @@ type StreamEvent struct {
 	Error            error
 }
 
+type RuntimeStatus struct {
+	IsRunningTool bool     `json:"is_running_tool"`
+	PendingInputs []string `json:"pending_inputs"`
+}
+
 type GenerateRequest struct {
 	Model        string
 	Instructions string
