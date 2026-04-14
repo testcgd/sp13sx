@@ -35,6 +35,7 @@ type chatMessage struct {
 }
 
 type toolCallMsg struct {
+	Index    int         `json:"index"`
 	ID       string      `json:"id"`
 	Type     string      `json:"type"`
 	Function functionMsg `json:"function"`
@@ -178,7 +179,7 @@ func (b *ChatBackend) processStream(stream <-chan []byte, errs <-chan error, out
 		}
 
 		for _, tc := range delta.ToolCalls {
-			idx := 0
+			idx := tc.Index
 			if tc.ID != "" {
 				if existing, ok := partialToolCalls[idx]; ok {
 					existing.ID = tc.ID
